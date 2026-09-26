@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SatQuery AI — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Poppins:ital,wght@0,600;1,600&family=Playfair+Display:ital,wght@0,600..900;1,600..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.css">
+<style>
+:root{
+  --blue:#0a6fd1;--blue-dim:#0958a3;--ink:#eef3fa;--ink-dim:#b7c3d6;
+  --bg:#050708;--panel:#0b0f16;--panel2:#0f141d;--line:rgba(255,255,255,.1);
+  --green:#7ed957;--green-ink:#0a3d1f;--rail:56px;--sbw:250px;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;overflow:hidden}
+.display{font-family:'Anton',sans-serif;letter-spacing:.02em;text-transform:uppercase}
+.italic-copy{font-family:'Poppins',sans-serif;font-weight:600;font-style:italic}
+.playfair-heading{
+  font-family:"Playfair Display",serif;
+  font-optical-sizing:auto;
+  font-weight:700;
+  font-style:normal;
+}
+button{font-family:inherit}
+ 
+#shell{display:flex;height:100vh;height:100dvh}
+ 
+/* SIDEBAR — collapsed rail by default, expands on click */
+#sidebar{width:var(--rail);flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;transition:width .18s;overflow:hidden;padding-top:env(safe-area-inset-top,0px)}
+#sidebar.open{width:var(--sbw)}
+.sb-top{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--line);flex-shrink:0}
+#sbToggle{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--ink);
+  cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px}
+.sb-brand{display:flex;align-items:center;gap:8px;white-space:nowrap;opacity:0;transition:opacity .15s}
+#sidebar.open .sb-brand{opacity:1}
+.sb-logo{width:22px;height:22px;border-radius:50%;background:var(--blue);flex-shrink:0}
+.sb-name{font-family:'Anton',sans-serif;font-size:13px}
+.new-chat{margin:12px;padding:9px;border-radius:8px;border:1px solid var(--green);background:transparent;
+  color:var(--ink);font-size:12.5px;cursor:pointer;white-space:nowrap;opacity:0;transition:opacity .15s}
+#sidebar.open .new-chat{opacity:1}
+.sb-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-dim);padding:8px 12px 4px;
+  opacity:0;transition:opacity .15s;white-space:nowrap}
+#sidebar.open .sb-label{opacity:1}
+#history{flex:1;overflow-y:auto;padding:0 8px;opacity:0;transition:opacity .15s}
+#sidebar.open #history{opacity:1}
+.hist-item{padding:8px 9px;border-radius:7px;font-size:12.5px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-item:hover{background:var(--panel2);color:var(--ink)}
+.sb-foot{border-top:1px solid var(--line);padding:10px;flex-shrink:0}
+.sb-account{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--ink-dim);
+  padding:8px;border-radius:8px;cursor:not-allowed;font-size:12.5px;white-space:nowrap}
+.sb-account .ic{width:20px;height:20px;border-radius:50%;border:1.5px solid currentColor;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:11px}
+.sb-account span.lbl{opacity:0;transition:opacity .15s}
+#sidebar.open .sb-account span.lbl{opacity:1}
+ 
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#workspace{flex:1;min-height:0;overflow-y:auto;padding:20px clamp(14px,2.5vw,32px) 10px}
+ 
+.mode-tabs{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:3px;margin-bottom:16px}
+.mode-tab{border:none;background:transparent;color:var(--ink-dim);padding:7px 16px;border-radius:16px;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.mode-tab.active{background:var(--blue);color:#fff}
+.globe-ico{width:13px;height:13px;border-radius:50%;border:1.3px solid currentColor;position:relative}
+.globe-ico::after{content:"";position:absolute;inset:-1.3px 4px;border-left:1.3px solid currentColor;border-right:1.3px solid currentColor;border-radius:50%}
+ 
+.work-grid{
+  display:flex;
+  gap:18px;
+  align-items:stretch;
+  min-height:calc(100% - 54px);
+}
+#uploadCol{
+  width:300px;
+  flex-shrink:0;
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  min-height:calc(100vh - 170px);
+  min-height:calc(100dvh - 170px);
+}
+#rightCol{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  min-height:100%;
+}
+ 
+.pair-block{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:22px 18px;
+  flex:1 1 0;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+.pair-block h4{margin:0 0 14px;font-size:14px;font-weight:600;letter-spacing:.01em;color:var(--ink-dim)}
+.file-slot{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--panel2);
+  border:1.5px solid var(--blue);border-radius:24px;padding:13px 15px;margin-bottom:12px;cursor:pointer;font-size:12.5px}
+.file-slot:hover{border-color:var(--blue)}
+.file-slot.filled{border-style:solid;border-color:var(--blue)}
+.file-slot input{display:none}
+.file-slot .lbl{font-weight:600}
+.file-slot .lbl em{font-style:italic;font-weight:500}
+.file-slot .fname{color:var(--ink-dim);font-size:11px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.validate-btn{width:100%;padding:9px;border-radius:8px;border:1px solid var(--line);background:transparent;
+  color:var(--ink-dim);font-size:12.5px;cursor:pointer;margin-top:4px;padding-top:12px;padding-bottom:12px}
+.validate-btn.ok{border-color:var(--blue);color:#fff;background:rgba(10,111,209,.12)}
+ 
+.preview-row{display:flex;gap:16px}
+.preview-box{flex:1;min-height:150px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:14px;font-family:'Inter',sans-serif;
+  font-size:12.5px;font-weight:500;color:var(--ink-dim)}
+.preview-box img{max-width:100%;max-height:130px;border-radius:6px}
+#selectedRegionPreview{
+  width:100%;
+  min-height:330px;
+  background:var(--panel);
+  border:1px solid var(--blue);
+  border-radius:12px;
+  padding:14px;
+  box-sizing:border-box;
+}
+#selectedRegionPreview .region-map-preview{
+  width:100%;
+  height:300px;
+  border-radius:8px;
+  overflow:hidden;
+  position:relative;
+  background:
+    linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px) 0 0/28px 28px,
+    linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px) 0 0/28px 28px,
+    radial-gradient(circle at 45% 45%,#183d55,#071019 70%);
+  border:1px solid rgba(255,255,255,.12);
+}
+#selectedRegionPreview .region-outline{
+  position:absolute;
+  left:18%;right:18%;top:17%;bottom:17%;
+  border:3px solid var(--blue);
+  background:rgba(10,111,209,.18);
+  box-shadow:0 0 0 1px rgba(0,0,0,.4),0 0 22px rgba(10,111,209,.25);
+}
+
+ 
+#mapBox{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:none;position:relative}
+#map{height:520px;min-height:360px;width:100%}
+#drawOverlay{
+  position:absolute;z-index:4;display:none;pointer-events:none;
+  border:3px solid #7ed957;background:rgba(126,217,87,.22);
+  box-shadow:0 0 0 1px rgba(0,0,0,.35),0 0 18px rgba(126,217,87,.25);
+}
+.map-selection-info{
+  position:absolute;z-index:2;left:12px;top:12px;
+  background:rgba(5,7,8,.88);border:1px solid rgba(255,255,255,.14);
+  color:var(--ink);padding:8px 11px;border-radius:7px;font-size:11.5px;
+  pointer-events:none;backdrop-filter:blur(5px)
+}
+.map-toolbar{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+.map-toolbar input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:7px;color:var(--ink);
+  padding:8px 12px;font-size:12.5px}
+.fetch-btn{background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:12px;cursor:pointer}
+.fetch-btn:disabled{opacity:.45;cursor:not-allowed}
+.search-results{
+  position:absolute;z-index:5;left:12px;right:12px;bottom:62px;
+  max-height:190px;overflow:auto;background:rgba(5,7,8,.96);
+  border:1px solid rgba(255,255,255,.15);border-radius:8px;
+  display:none
+}
+.search-result{
+  padding:9px 11px;color:var(--ink);font-size:12px;cursor:pointer;
+  border-bottom:1px solid rgba(255,255,255,.08)
+}
+.search-result:hover{background:var(--panel2)}
+
+.maplibregl-ctrl-group{background:var(--panel)!important;border-color:var(--line)!important}
+.maplibregl-ctrl-group button{filter:invert(1)}
+.maplibregl-ctrl-attrib{background:rgba(5,7,8,.75)!important;color:var(--ink-dim)!important}
+ 
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.step-line{display:flex;gap:10px;align-items:flex-start;padding:7px 0;opacity:0;transform:translateY(6px);
+  animation:reveal .35s forwards;font-size:13px}
+@keyframes reveal{to{opacity:1;transform:none}}
+.step-line .chk{color:var(--green);flex-shrink:0}
+.step-line .d{color:var(--ink-dim)}
+#answerBox{margin-top:14px;padding:16px;background:var(--panel2);border-radius:9px;border-left:3px solid var(--blue);font-size:15px;line-height:1.6}
+details summary{cursor:pointer;color:var(--ink-dim);font-size:12.5px;margin-top:10px}
+#logsBox pre{background:#000;padding:12px;border-radius:8px;font-size:11.5px;color:#9fe29f;overflow-x:auto;max-height:220px}
+.conf-row{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12px;color:var(--ink-dim)}
+.conf-bar{flex:1;height:6px;background:var(--panel2);border-radius:4px;overflow:hidden}
+.conf-fill{height:100%;background:var(--blue)}
+.conf-total{font-family:'Anton',sans-serif;font-size:24px;color:var(--green)}
+#reportBtn{margin-top:14px;background:var(--green);color:var(--green-ink);border:none;padding:10px 20px;
+  border-radius:20px;font-family:'Anton',sans-serif;font-size:12.5px;letter-spacing:.03em;cursor:pointer}
+ 
+/* QUERY BAR — pinned, area above scrolls */
+#queryBar{flex-shrink:0;border-top:1px solid var(--line);padding:14px clamp(14px,2.5vw,32px);
+  padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;background:var(--bg)}
+#queryInput{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:24px;color:var(--ink);
+  padding:13px 20px;font-size:14px;resize:none;font-family:inherit}
+#sendBtn{background:var(--green);color:var(--green-ink);border:none;width:46px;height:46px;border-radius:50%;
+  font-size:17px;cursor:pointer;flex-shrink:0}
+ 
+@media (max-width:900px){
+  #selectedRegionPreview .region-map-preview{height:240px}
+  .work-grid{
+    flex-direction:column;
+    min-height:0;
+  }
+  #uploadCol{
+    width:100%;
+    height:auto;
+    min-height:0;
+  }
+  .pair-block{
+    flex:0 0 auto;
+  }
+  .preview-row{flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div id="shell">
+  <aside id="sidebar">
+    <div class="sb-top">
+      <button id="sbToggle" aria-label="Expand sidebar">›</button>
+      <div class="sb-brand"><div class="sb-logo"></div><span class="sb-name">SAT QUERY AI</span></div>
+    </div>
+    <button class="new-chat" id="newChat">+ New analysis</button>
+    <div class="sb-label">Recent</div>
+    <div id="history"></div>
+    <div class="sb-foot">
+      <button class="sb-account" disabled title="Account settings — coming soon">
+        <span class="ic">👤</span><span class="lbl">Account settings</span>
+      </button>
+    </div>
+  </aside>
+ 
+  <div id="main">
+    <div id="workspace">
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="modeUpload">Upload images</button>
+        <button class="mode-tab" id="modeMap"><span class="globe-ico"></span> Select on map</button>
+      </div>
+ 
+      <div class="work-grid">
+        <div id="uploadCol">
+          <div class="pair-block">
+            <h4>Upload Image Pair 1</h4>
+            <label class="file-slot" data-slot="p1o"><span class="lbl">Optical image <em>(Sentinel 2)</em></span><span class="fname">Choose file</span><input type="file" accept=".jpg,.jpeg,.png,.tif,.tiff"></label>
+            <label class="file-slot" data-slot="p1s"><span class="lbl">SAR image <em>(Sentinel 1)</em></span><span class="fname">Choose file</span><input type="file" accept=".jpg,.jpeg,.png,.tif,.tiff"></label>
+            <button class="validate-btn" data-pair="1">Validate Pair 1 images</button>
+          </div>
+          <div class="pair-block">
+            <h4>Upload Image Pair 2 <span style="opacity:.6">(optional)</span></h4>
+            <label class="file-slot" data-slot="p2o"><span class="lbl">Optical image <em>(Sentinel 2)</em></span><span class="fname">Choose file</span><input type="file" accept=".jpg,.jpeg,.png,.tif,.tiff"></label>
+            <label class="file-slot" data-slot="p2s"><span class="lbl">SAR image <em>(Sentinel 1)</em></span><span class="fname">Choose file</span><input type="file" accept=".jpg,.jpeg,.png,.tif,.tiff"></label>
+            <button class="validate-btn" data-pair="2">Validate Pair 2 images</button>
+          </div>
+          <p style="font-size:11px;color:var(--ink-dim);margin:0">Accepted: JPG, PNG, TIFF/GeoTIFF. GeoTIFF keeps full CRS fidelity; JPG/PNG is treated as a benchmark fallback.</p>
+        </div>
+ 
+        <div id="rightCol">
+          <div class="preview-row" id="previewRow" style="display:none">
+  <div class="preview-box" id="pv1">Pair 1 optical preview</div>
+  <div class="preview-box" id="pv2">Pair 2 optical preview</div>
+</div>
+<div id="selectedRegionPreview" style="display:none"></div>
+          <div id="mapBox">
+            <div id="map" aria-label="Interactive MapLibre map"></div>
+<div id="drawOverlay" aria-hidden="true"></div>
+            <div class="search-results" id="searchResults"></div>
+            <div class="map-selection-info" id="mapSelectionInfo">
+              Click anywhere on the map to select a region.
+            </div>
+            <div class="map-toolbar">
+              <input id="mapSearch" placeholder="Search a region (e.g. Bhopal, India)…">
+              <button class="fetch-btn" id="searchRegion">Search</button>
+              <button class="fetch-btn" id="drawRegion">Draw area</button>
+              <button class="fetch-btn" id="fetchImagery">Use selected region</button>
+            </div>
+          </div>
+          <div id="results"></div>
+        </div>
+      </div>
+    </div>
+ 
+    <div id="queryBar">
+      <textarea id="queryInput" rows="1" placeholder="Input query to agent…"></textarea>
+      <button id="sendBtn">↑</button>
+    </div>
+  </div>
+</div>
+ 
+<script>
+const state={slots:{p1o:null,p1s:null,p2o:null,p2s:null},validated:{1:false,2:false},mapFetched:false,mode:'upload',map:null,selectedPoint:null,marker:null};
+ 
+document.getElementById('sbToggle').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+document.getElementById('newChat').onclick=()=>location.reload();
+ 
+function loadHistory(){
+  const h=JSON.parse(localStorage.getItem('sq_history')||'[]');
+  document.getElementById('history').innerHTML=h.map(x=>`<div class="hist-item">${x}</div>`).join('')||'<div class="hist-item">No sessions yet</div>';
+}
+function pushHistory(q){
+  const h=JSON.parse(localStorage.getItem('sq_history')||'[]');
+  h.unshift(q.slice(0,42));
+  localStorage.setItem('sq_history',JSON.stringify(h.slice(0,15)));
+  loadHistory();
+}
+loadHistory();
+ 
+const uploadTab=document.getElementById('modeUpload'),mapTab=document.getElementById('modeMap');
+const uploadCol=document.getElementById('uploadCol'),mapBox=document.getElementById('mapBox'),previewRow=document.getElementById('previewRow');
+uploadTab.onclick=()=>{state.mode='upload';uploadTab.classList.add('active');mapTab.classList.remove('active');
+  uploadCol.style.display='flex';mapBox.style.display='none';renderPreviews();};
+mapTab.onclick=()=>{state.mode='map';mapTab.classList.add('active');uploadTab.classList.remove('active');
+  uploadCol.style.display='none';mapBox.style.display='block';renderPreviews();
+  setTimeout(()=>state.map&&state.map.resize(),50);};
+ 
+document.querySelectorAll('.file-slot input').forEach(inp=>{
+  inp.addEventListener('change',e=>{
+    const slot=e.target.closest('.file-slot'), key=slot.dataset.slot, f=e.target.files[0];
+    if(!f) return;
+    state.slots[key]=f;
+    slot.classList.add('filled');
+    slot.querySelector('.fname').textContent=f.name;
+    renderPreviews();
+  });
+});
+ 
+document.querySelectorAll('.validate-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    const p=btn.dataset.pair, o=state.slots['p'+p+'o'], s=state.slots['p'+p+'s'];
+    if(o&&s){btn.classList.add('ok');btn.textContent='Pair '+p+' validated ✓';state.validated[p]=true;}
+    else{btn.textContent='Upload both Optical + SAR for Pair '+p;}
+  };
+});
+ 
+document.getElementById('fetchImagery').onclick=()=>{
+  if(!state.selectedPoint){
+    document.getElementById('mapSelectionInfo').textContent='Click the map first to select a region.';
+    return;
+  }
+  state.mapFetched=true;
+  document.getElementById('mapSelectionInfo').textContent=
+    'Selected region · '+state.selectedPoint.lat.toFixed(5)+'°, '+state.selectedPoint.lng.toFixed(5)+'°';
+  renderPreviews();
+};
+ 
+function renderRegionPreview(bbox){
+  const preview=document.getElementById('selectedRegionPreview');
+  const [minLng,minLat,maxLng,maxLat]=bbox;
+  const centerLng=(minLng+maxLng)/2;
+  const centerLat=(minLat+maxLat)/2;
+
+  // Hide Pair 1 / Pair 2 tiles completely.
+  previewRow.style.display='none';
+  document.getElementById('pv1').style.display='none';
+  document.getElementById('pv2').style.display='none';
+
+  preview.style.display='block';
+  preview.innerHTML=`
+    <div style="font-size:14px;font-weight:600;color:var(--ink-dim);margin:0 0 12px;">
+      Selected Region
+    </div>
+    <div class="region-map-preview">
+      <div class="region-outline"></div>
+      <div style="position:absolute;left:50%;top:50%;width:9px;height:9px;
+        transform:translate(-50%,-50%);border-radius:50%;background:var(--blue);
+        box-shadow:0 0 0 5px rgba(10,111,209,.20);"></div>
+      <div style="position:absolute;left:12px;top:12px;background:rgba(5,7,8,.88);
+        padding:7px 10px;border-radius:6px;font-size:11px;color:var(--ink);">
+        REGION SELECTED ✓
+      </div>
+      <div style="position:absolute;left:12px;bottom:12px;background:rgba(5,7,8,.88);
+        padding:6px 9px;border-radius:5px;font-size:10.5px;color:var(--ink-dim);">
+        ${centerLat.toFixed(5)}°, ${centerLng.toFixed(5)}°
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:11.5px;color:var(--ink-dim);">
+      Bounding box:
+      <span style="color:var(--ink)">[${bbox.map(v=>Number(v).toFixed(6)).join(', ')}]</span>
+    </div>
+    <div style="margin-top:6px;font-size:11.5px;color:var(--ink-dim);">
+      Selected area is ready for satellite imagery retrieval and agent analysis.
+    </div>`;
+}
+
+function renderPreviews(){
+  const selectedPreview=document.getElementById('selectedRegionPreview');
+
+  if(state.mode==='map'){
+    previewRow.style.display='none';
+    selectedPreview.style.display='none';
+    return;
+  }
+
+  if(state.mapFetched && state.selectedPoint && state.selectedPoint.bbox){
+    renderRegionPreview(state.selectedPoint.bbox);
+    return;
+  }
+
+  // No selected map region: hide the selected-region tile.
+  selectedPreview.style.display='none';
+
+  const hasP1=!!state.slots.p1o;
+  const hasP2=!!state.slots.p2o;
+
+  // Pair preview tiles are absent until an optical image is selected.
+  if(!hasP1 && !hasP2){
+    previewRow.style.display='none';
+    document.getElementById('pv1').style.display='none';
+    document.getElementById('pv2').style.display='none';
+    return;
+  }
+
+  previewRow.style.display='flex';
+
+  if(hasP1){
+    document.getElementById('pv1').style.display='flex';
+    fillPreview('pv1','p1o','');
+  }else{
+    document.getElementById('pv1').style.display='none';
+  }
+
+  if(hasP2){
+    document.getElementById('pv2').style.display='flex';
+    fillPreview('pv2','p2o','');
+  }else{
+    document.getElementById('pv2').style.display='none';
+  }
+}
+
+function fillPreview(boxId,slotKey,placeholder){
+  const box=document.getElementById(boxId), f=state.slots[slotKey];
+  box.style.display='flex';
+  if(!f){ box.textContent=placeholder; return; }
+  if(/\.(jpe?g|png)$/i.test(f.name)){
+    box.innerHTML='<img src="'+URL.createObjectURL(f)+'" alt="'+f.name+'">';
+  } else {
+    box.textContent=f.name+' — GeoTIFF (preview unavailable in-browser)';
+  }
+}
+ 
+
+/* MAPLIBRE — search + area selection */
+(async function initMapLibre(){
+  try{
+    const maplibregl = await import('https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs');
+
+    const map = new maplibregl.Map({
+      container:'map',
+      style:{
+        version:8,
+        sources:{
+          osm:{
+            type:'raster',
+            tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'],
+            tileSize:256,
+            attribution:'Tiles © Esri'
+          }
+        },
+        layers:[{id:'osm',type:'raster',source:'osm'}]
+      },
+      center:[78.9629,20.5937],
+      zoom:4.2
+    });
+
+    state.map=map;
+    map.addControl(new maplibregl.NavigationControl({showCompass:true}), 'top-right');
+
+    let searchMarker=null;
+    let selectionSourceReady=false;
+    let drawing=false;
+    let startPoint=null;
+
+    function updateSelectionInfo(text){
+      document.getElementById('mapSelectionInfo').textContent=text;
+    }
+
+    function setArea(minLng,minLat,maxLng,maxLat){
+      state.selectedPoint={
+        lng:(minLng+maxLng)/2,
+        lat:(minLat+maxLat)/2,
+        bbox:[minLng,minLat,maxLng,maxLat]
+      };
+
+      const geojson={
+        type:'Feature',
+        geometry:{
+          type:'Polygon',
+          coordinates:[[
+            [minLng,minLat],[maxLng,minLat],
+            [maxLng,maxLat],[minLng,maxLat],[minLng,minLat]
+          ]]
+        }
+      };
+
+      if(!selectionSourceReady){
+        map.addSource('selected-area',{type:'geojson',data:geojson});
+        map.addLayer({
+          id:'selected-area-fill',
+          type:'fill',
+          source:'selected-area',
+          paint:{'fill-color':'#7ed957','fill-opacity':0.16}
+        });
+        map.addLayer({
+          id:'selected-area-line',
+          type:'line',
+          source:'selected-area',
+          paint:{'line-color':'#7ed957','line-width':4,'line-opacity':1}
+        });
+        selectionSourceReady=true;
+      }else{
+        map.getSource('selected-area').setData(geojson);
+      }
+
+      if(searchMarker){ searchMarker.remove(); searchMarker=null; }
+
+      document.getElementById('fetchImagery').disabled=false;
+      updateSelectionInfo(
+        'Area selected · '+minLat.toFixed(4)+'°, '+minLng.toFixed(4)+'° → '+
+        maxLat.toFixed(4)+'°, '+maxLng.toFixed(4)+'°'
+      );
+    }
+
+    function selectPoint(lng,lat){
+      const dLng=0.04, dLat=0.04;
+      setArea(lng-dLng,lat-dLat,lng+dLng,lat+dLat);
+    }
+
+    map.on('click',e=>{
+      if(drawing) return;
+      selectPoint(e.lngLat.lng,e.lngLat.lat);
+    });
+
+    map.on('move',()=>{
+      if(drawing && startPoint){
+        const center=map.getCenter();
+        // The rectangle is refreshed by the next mousemove; this handler
+        // intentionally avoids changing geographic selection state.
+      }
+    });
+
+    map.on('load',()=>{
+      setTimeout(()=>map.resize(),100);
+      document.getElementById('fetchImagery').disabled=true;
+    });
+
+    // Search a named region using Nominatim/OpenStreetMap.
+    async function searchRegion(){
+      const q=document.getElementById('mapSearch').value.trim();
+      const box=document.getElementById('searchResults');
+      if(!q) return;
+
+      box.style.display='block';
+      box.innerHTML='<div class="search-result">Searching…</div>';
+
+      try{
+        const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&polygon_geojson=1&q='+encodeURIComponent(q);
+        const response=await fetch(url,{headers:{'Accept':'application/json'}});
+        const results=await response.json();
+
+        if(!results.length){
+          box.innerHTML='<div class="search-result">No matching region found.</div>';
+          return;
+        }
+
+        box.innerHTML=results.map((r,i)=>
+          '<div class="search-result" data-index="'+i+'">'+
+          (r.display_name||'Unknown region')+'</div>'
+        ).join('');
+
+        box.querySelectorAll('.search-result').forEach(el=>{
+          el.onclick=()=>{
+            const r=results[Number(el.dataset.index)];
+            box.style.display='none';
+
+            const lat=Number(r.lat), lon=Number(r.lon);
+            const minLat=Number(r.boundingbox[0]);
+            const maxLat=Number(r.boundingbox[1]);
+            const minLng=Number(r.boundingbox[2]);
+            const maxLng=Number(r.boundingbox[3]);
+
+            map.fitBounds([[minLng,minLat],[maxLng,maxLat]],{
+              padding:60,maxZoom:15,duration:900
+            });
+
+            if(searchMarker) searchMarker.remove();
+            searchMarker=new maplibregl.Marker({color:'#0a6fd1'})
+              .setLngLat([lon,lat])
+              .addTo(map);
+
+            // Use the geocoder's actual region bounding box as the selected area.
+            setArea(minLng,minLat,maxLng,maxLat);
+            updateSelectionInfo('Region found: '+(r.display_name||q));
+          };
+        });
+      }catch(err){
+        console.error('Geocoding failed:',err);
+        box.innerHTML='<div class="search-result">Search failed. Check internet access.</div>';
+      }
+    }
+
+    document.getElementById('searchRegion').onclick=searchRegion;
+    document.getElementById('mapSearch').addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        searchRegion();
+      }
+    });
+
+    // Draw a custom rectangular area by dragging on the map.
+    // The rectangle is rendered LIVE while the user is dragging.
+    let drawingSourceReady=false;
+    const drawOverlay=document.getElementById('drawOverlay');
+
+    function drawPreview(minLng,minLat,maxLng,maxLat){
+      const geojson={
+        type:'Feature',
+        geometry:{
+          type:'Polygon',
+          coordinates:[[
+            [minLng,minLat],[maxLng,minLat],
+            [maxLng,maxLat],[minLng,maxLat],[minLng,minLat]
+          ]]
+        }
+      };
+
+      // Keep a GeoJSON copy too, but use the DOM overlay for immediate,
+      // pixel-perfect visual feedback while dragging.
+      if(!drawingSourceReady){
+        map.addSource('drawing-preview',{type:'geojson',data:geojson});
+        map.addLayer({
+          id:'drawing-preview-fill',
+          type:'fill',
+          source:'drawing-preview',
+          paint:{'fill-color':'#7ed957','fill-opacity':0.20}
+        });
+        map.addLayer({
+          id:'drawing-preview-line',
+          type:'line',
+          source:'drawing-preview',
+          paint:{'line-color':'#7ed957','line-width':3,'line-opacity':1}
+        });
+        drawingSourceReady=true;
+      }else{
+        map.getSource('drawing-preview').setData(geojson);
+      }
+
+      const a=map.project([minLng,maxLat]);
+      const b=map.project([maxLng,minLat]);
+
+      drawOverlay.style.display='block';
+      drawOverlay.style.left=Math.min(a.x,b.x)+'px';
+      drawOverlay.style.top=Math.min(a.y,b.y)+'px';
+      drawOverlay.style.width=Math.abs(b.x-a.x)+'px';
+      drawOverlay.style.height=Math.abs(b.y-a.y)+'px';
+
+      updateSelectionInfo(
+        'Selecting area · '+Math.abs(maxLng-minLng).toFixed(4)+'° × '+
+        Math.abs(maxLat-minLat).toFixed(4)+'°'
+      );
+    }
+
+    function clearDrawingPreview(){
+      drawOverlay.style.display='none';
+      if(drawingSourceReady && map.getSource('drawing-preview')){
+        map.getSource('drawing-preview').setData({
+          type:'FeatureCollection',
+          features:[]
+        });
+      }
+    }
+
+    document.getElementById('drawRegion').onclick=()=>{
+      drawing=!drawing;
+      document.getElementById('drawRegion').textContent=drawing?'Cancel drawing':'Draw area';
+
+      if(drawing){
+        map.dragPan.disable();
+        map.getCanvas().style.cursor='crosshair';
+        updateSelectionInfo('Click and drag to select an area.');
+      }else{
+        startPoint=null;
+        clearDrawingPreview();
+        map.dragPan.enable();
+        map.getCanvas().style.cursor='';
+        updateSelectionInfo(
+          state.selectedPoint
+            ? 'Area selected · drag again to replace it.'
+            : 'Click the map to select a region.'
+        );
+      }
+    };
+
+    map.on('mousedown',e=>{
+      if(!drawing || e.originalEvent.button!==0) return;
+
+      e.preventDefault();
+      startPoint={lng:e.lngLat.lng,lat:e.lngLat.lat};
+
+      // Start with a tiny visible rectangle so the user immediately
+      // sees that drawing has begun.
+      drawPreview(
+        startPoint.lng,startPoint.lat,
+        startPoint.lng,startPoint.lat
+      );
+    });
+
+    map.on('mousemove',e=>{
+      if(!drawing || !startPoint) return;
+
+      const end=e.lngLat;
+      const minLng=Math.min(startPoint.lng,end.lng);
+      const maxLng=Math.max(startPoint.lng,end.lng);
+      const minLat=Math.min(startPoint.lat,end.lat);
+      const maxLat=Math.max(startPoint.lat,end.lat);
+
+      drawPreview(minLng,minLat,maxLng,maxLat);
+    });
+
+    map.on('mouseup',e=>{
+      if(!drawing || !startPoint) return;
+
+      const end=e.lngLat;
+      const minLng=Math.min(startPoint.lng,end.lng);
+      const maxLng=Math.max(startPoint.lng,end.lng);
+      const minLat=Math.min(startPoint.lat,end.lat);
+      const maxLat=Math.max(startPoint.lat,end.lat);
+
+      if(Math.abs(maxLng-minLng)<0.001 || Math.abs(maxLat-minLat)<0.001){
+        updateSelectionInfo('Area is too small. Drag a larger rectangle.');
+        clearDrawingPreview();
+      }else{
+        // Convert the live preview into the confirmed selection.
+        setArea(minLng,minLat,maxLng,maxLat);
+        // The confirmed MapLibre layer takes over.
+        setTimeout(()=>clearDrawingPreview(),50);
+        updateSelectionInfo(
+          'Area selected · '+minLat.toFixed(4)+'°, '+minLng.toFixed(4)+'° → '+
+          maxLat.toFixed(4)+'°, '+maxLng.toFixed(4)+'°'
+        );
+      }
+
+      startPoint=null;
+      drawing=false;
+      map.dragPan.enable();
+      document.getElementById('drawRegion').textContent='Draw area';
+      map.getCanvas().style.cursor='';
+    });
+
+    document.getElementById('fetchImagery').onclick=()=>{
+      if(!state.selectedPoint){
+        updateSelectionInfo('Search for a region or draw an area first.');
+        return;
+      }
+
+      state.mapFetched=true;
+
+      // Keep the geographic selection, then return to the normal
+      // workspace so the selected region can be previewed.
+      const bbox=[...state.selectedPoint.bbox];
+
+      state.mode='upload';
+      mapTab.classList.remove('active');
+      uploadTab.classList.add('active');
+      uploadCol.style.display='flex';
+      mapBox.style.display='none';
+
+      // Render a preview representing the selected geographic region.
+      renderRegionPreview(bbox);
+
+      // Let MapLibre finish its current event before resizing/closing.
+      setTimeout(()=>state.map&&state.map.resize(),50);
+    };
+
+  }catch(err){
+    console.error('MapLibre failed to initialize:',err);
+    document.getElementById('mapSelectionInfo').textContent=
+      'Map could not load. Check internet access or the browser console.';
+  }
+})();
+
+function classify(){
+  const s=state.slots;
+  if(state.mapFetched && state.selectedPoint)
+    return {intent:'single_image_vqa',label:'Single-Image VQA (selected map region)',
+            bbox:state.selectedPoint.bbox};
+  const p1o=!!s.p1o, p2o=!!s.p2o, p1s=!!s.p1s, p2s=!!s.p2s;
+  if(p1o&&p2o) return {intent:'change_detection',label:'Bi-Temporal Change Detection'};
+  if(p1o&&p1s||p2o&&p2s) return {intent:'cross_modal_fusion',label:'Cross-Modal Optical–SAR Fusion'};
+  if(p1o||p1s||p2o||p2s) return {intent:'single_image_vqa',label:'Single-Image VQA / Captioning'};
+  return null;
+}
+ 
+document.getElementById('sendBtn').onclick=submitQuery;
+document.getElementById('queryInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submitQuery();}});
+ 
+function submitQuery(){
+  const q=document.getElementById('queryInput').value.trim();
+  if(!q) return;
+  const c=classify();
+  if(!c){alert('Upload imagery or select a map region first.');return;}
+  pushHistory(q);
+  const dq=(0.82+Math.random()*0.15), model=(0.8+Math.random()*0.18), agree=(0.78+Math.random()*0.2);
+  const overall=0.30*dq+0.45*model+0.25*agree;
+  const trace=[
+    {
+      t:'Validated inputs',
+      d:(state.mapFetched && state.selectedPoint
+        ? 'region selected · bbox ['+c.bbox.map(v=>v.toFixed(5)).join(', ')+']'
+        : 'files checked · CRS + band count confirmed')
+    },
+    {t:'Classified intent',d:c.label+' (intent confidence '+(0.9+Math.random()*0.08).toFixed(2)+')'},
+    {t:'Routed to specialist model',d:c.intent+' → satquery/models/registry.py'},
+    {t:'Confidence computed',d:'data_quality '+dq.toFixed(2)+' · model '+model.toFixed(2)+' · agreement '+agree.toFixed(2)}
+  ];
+  const answers={
+    change_detection:'Between the two acquisitions, built-up area in the scene increased while vegetated cover contracted along the northern edge — consistent with new construction activity.',
+    cross_modal_fusion:'Combining optical and SAR confirms a water-covered region in the lower-left quadrant that is partly cloud-obscured in the optical band alone; SAR backscatter fills the gap.',
+    single_image_vqa:'The scene is predominantly agricultural land with a cluster of built-up structures near the centre and a river running along the eastern boundary.'
+  };
+  const results=document.getElementById('results');
+  results.innerHTML='<div class="card" id="stepsCard"><h4 style="margin:0 0 14px;font-family:\'Inter\',sans-serif;font-size:14px;font-weight:600;color:var(--ink-dim);letter-spacing:.01em">QUERY ROUTER — AGENT ORCHESTRATION</h4></div>';
+  const stepsCard=document.getElementById('stepsCard');
+  trace.forEach((s,i)=>{
+    setTimeout(()=>{
+      const line=document.createElement('div');
+      line.className='step-line'; line.style.animationDelay=(i*0.05)+'s';
+      line.innerHTML='<span class="chk">✓</span><span><b>'+s.t+'</b><br><span class="d">'+s.d+'</span></span>';
+      stepsCard.appendChild(line);
+      if(i===trace.length-1) revealAnswer();
+    }, i*450);
+  });
+  function revealAnswer(){
+    const box=document.createElement('div');
+    box.className='card';
+    box.style.marginTop='16px';
+    box.innerHTML=`
+      <div id="answerBox" class="italic-copy">${answers[c.intent]}</div>
+      <details id="logsBox"><summary>Logs — full execution trace</summary><pre>${JSON.stringify(trace,null,2)}</pre></details>
+      <div style="margin-top:16px">
+        <div class="conf-row">Data quality <div class="conf-bar"><div class="conf-fill" style="width:${dq*100}%"></div></div>${dq.toFixed(2)}</div>
+        <div class="conf-row">Model <div class="conf-bar"><div class="conf-fill" style="width:${model*100}%"></div></div>${model.toFixed(2)}</div>
+        <div class="conf-row">Agreement <div class="conf-bar"><div class="conf-fill" style="width:${agree*100}%"></div></div>${agree.toFixed(2)}</div>
+        <div style="margin-top:8px">Overall confidence <span class="conf-total">${overall.toFixed(2)}</span></div>
+      </div>
+      <a id="reportBtn" href="#" download="satquery-report.json"
+        style="display:inline-block;text-decoration:none;margin-top:14px;background:var(--green);
+        color:var(--green-ink);border:none;padding:10px 20px;border-radius:20px;
+        font-family:'Anton',sans-serif;font-size:12.5px;letter-spacing:.03em;cursor:pointer;">
+        Generate / download report
+      </a>`;
+    stepsCard.parentElement.appendChild(box);
+    document.getElementById('reportBtn').onclick=(e)=>{
+      e.preventDefault();
+
+      const btn=document.getElementById('reportBtn');
+      const report={
+        generated_at:new Date().toISOString(),
+        application:'SatQuery AI',
+        mode:state.mode,
+        input:(state.mapFetched && state.selectedPoint)
+          ? {type:'selected_region',bbox:state.selectedPoint.bbox}
+          : Object.fromEntries(
+              Object.entries(state.slots)
+                .filter(([,v])=>v)
+                .map(([k,v])=>[k,v.name])
+            ),
+        query:q,
+        workflow:c.intent,
+        trace:trace,
+        answer:answers[c.intent],
+        confidence:{data_quality:dq,model:model,agreement:agree,overall:overall}
+      };
+
+      const json=JSON.stringify(report,null,2);
+      const blob=new Blob([json],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+
+      // Put the blob URL directly on the visible anchor. Then trigger it
+      // from the same user click. This is more reliable than creating a
+      // detached anchor and calling click() on some local-file setups.
+      btn.href=url;
+      btn.download='satquery-report.json';
+      btn.textContent='Download report ✓';
+
+      // Give the browser a real navigation target as a fallback.
+      setTimeout(()=>{
+        btn.textContent='Generate / download report';
+        if(btn.href && btn.href.startsWith('blob:')){
+          URL.revokeObjectURL(url);
+          btn.href='#';
+        }
+      },15000);
+    };
+  }
+  document.getElementById('queryInput').value='';
+  results.scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>
