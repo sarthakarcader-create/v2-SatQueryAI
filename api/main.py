@@ -1,4 +1,8 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from satquery.agent.controller import AgentController
+
 
 app = FastAPI(
     title="SatQuery AI API",
@@ -6,9 +10,23 @@ app = FastAPI(
 )
 
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# Initialize the existing SatQuery agent
+controller = AgentController()
+
+
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "service": "SatQuery AI"
+        "service": "SatQuery AI",
+        "agent": "ready"
     }
