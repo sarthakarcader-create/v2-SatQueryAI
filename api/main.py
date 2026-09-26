@@ -15,10 +15,6 @@ app = FastAPI(
 )
 
 
-# ---------------------------------------------------------
-# CORS
-# ---------------------------------------------------------
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,16 +24,8 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------
-# Agent Controller
-# ---------------------------------------------------------
-
 controller = AgentController()
 
-
-# ---------------------------------------------------------
-# Health Check
-# ---------------------------------------------------------
 
 @app.get("/health")
 def health():
@@ -48,10 +36,6 @@ def health():
     }
 
 
-# ---------------------------------------------------------
-# Analyze Satellite Imagery
-# ---------------------------------------------------------
-
 @app.post("/analyze")
 async def analyze(
     query: str = Form(...),
@@ -60,10 +44,6 @@ async def analyze(
     temp_paths = []
 
     try:
-        # -------------------------------------------------
-        # Validate inputs
-        # -------------------------------------------------
-
         if not query.strip():
             raise HTTPException(
                 status_code=400,
@@ -76,12 +56,7 @@ async def analyze(
                 detail="At least one image is required."
             )
 
-        # -------------------------------------------------
-        # Save uploaded files temporarily
-        # -------------------------------------------------
-
         for uploaded_file in files:
-
             if not uploaded_file.filename:
                 continue
 
@@ -102,47 +77,28 @@ async def analyze(
                 detail="No valid files were uploaded."
             )
 
-        # -------------------------------------------------
-        # Load images using SatQuery geospatial pipeline
-        # -------------------------------------------------
-
         images = controller.load_images(temp_paths)
-
-        # -------------------------------------------------
-        # Run actual AgentController
-        # -------------------------------------------------
 
         result = controller.process(
             query=query,
             images=images
         )
 
-        # -------------------------------------------------
-        # Return dashboard-friendly JSON
-        # -------------------------------------------------
-
         return {
             "status": result.status,
             "answer": result.answer,
             "confidence": result.confidence,
             "confidence_breakdown": result.confidence_breakdown,
-
             "task": result.task,
             "sub_capability": result.sub_capability,
             "intent": result.intent,
-
             "validation": result.validation,
-
             "tools_used": result.tools_used,
-
             "metrics": result.metrics,
             "visual_evidence": result.visual_evidence,
-
             "warnings": result.warnings,
             "errors": result.errors,
-
             "execution_summary": result.execution_summary,
-
             "inputs": [
                 {
                     "filename": file.filename,
@@ -162,10 +118,6 @@ async def analyze(
         )
 
     finally:
-        # -------------------------------------------------
-        # Clean up temporary uploaded files
-        # -------------------------------------------------
-
         for path in temp_paths:
             try:
                 if path.exists():
