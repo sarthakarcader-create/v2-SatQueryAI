@@ -46,3 +46,6 @@ pytest>=8.0
 # Optional: training extras
 # peft>=0.11          # only needed if swapping in HF PEFT adapters
 # tifffile>=2024.0    # fallback TIFF reader (auto-detected if present)
+
+fastapi
+uvicorn[standard]
