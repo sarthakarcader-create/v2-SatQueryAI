@@ -56,7 +56,9 @@ async def analyze(
                 detail="At least one image is required."
             )
 
+        # Save uploaded files temporarily
         for uploaded_file in files:
+
             if not uploaded_file.filename:
                 continue
 
@@ -69,7 +71,10 @@ async def analyze(
 
                 contents = await uploaded_file.read()
                 temp_file.write(contents)
-                temp_paths.append(Path(temp_file.name))
+
+                temp_paths.append(
+                    Path(temp_file.name)
+                )
 
         if not temp_paths:
             raise HTTPException(
@@ -77,8 +82,10 @@ async def analyze(
                 detail="No valid files were uploaded."
             )
 
+        # Load images through the real SatQuery pipeline
         images = controller.load_images(temp_paths)
 
+        # Run the real AgentController
         result = controller.process(
             query=query,
             images=images
@@ -118,6 +125,7 @@ async def analyze(
         )
 
     finally:
+        # Clean up temporary uploaded files
         for path in temp_paths:
             try:
                 if path.exists():
