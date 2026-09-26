@@ -19,7 +19,6 @@ app.add_middleware(
 )
 
 
-# Initialize the existing SatQuery agent
 controller = AgentController()
 
 
