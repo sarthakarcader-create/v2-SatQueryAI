@@ -38,6 +38,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from satquery.app.auth import signup, login, logout
+
 try:  # pragma: no cover - optional dependency
     import folium
     from folium.plugins import Draw
@@ -845,6 +847,88 @@ def _acquire_from_map(bbox: Tuple[float, float, float, float], start: date, end:
     st.session_state.result_map = None
 
 
+# ---------------------------------------------------------------- authentication
+ss = st.session_state
+
+ss.setdefault("authenticated", False)
+ss.setdefault("auth_email", "")
+
+if not ss.authenticated:
+    st.title("🛰️ SatQuery AI")
+    st.subheader("Sign in to continue")
+
+    email = st.text_input(
+        "Email address",
+        placeholder="you@example.com"
+    )
+
+    password = st.text_input(
+        "Password",
+        type="password",
+        placeholder="At least 6 characters"
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Create account", type="primary"):
+            if not email.strip() or not password:
+                st.error("Please enter your email and password.")
+            elif len(password) < 6:
+                st.error("Password must be at least 6 characters.")
+            else:
+                try:
+                    response = signup(
+                        email.strip(),
+                        password
+                    )
+
+                    ss.auth_email = email.strip()
+
+                    if response.user and response.session:
+                        ss.authenticated = True
+                        ss.user = response.user
+                        ss.auth_session = response.session
+                        st.success("Account created and logged in!")
+                        st.rerun()
+                    else:
+                        st.success(
+                            "Account created! Check your email and confirm your email address, "
+                            "then sign in."
+                        )
+
+                except Exception as exc:
+                    st.error(f"Unable to create account: {exc}")
+
+    with col2:
+        if st.button("Sign in"):
+            if not email.strip() or not password:
+                st.error("Please enter your email and password.")
+            else:
+                try:
+                    response = login(
+                        email.strip(),
+                        password
+                    )
+
+                    ss.authenticated = True
+                    ss.user = response.user
+                    ss.auth_session = response.session
+                    ss.auth_email = email.strip()
+
+                    st.success("Login successful!")
+                    st.rerun()
+
+                except Exception as exc:
+                    st.error(f"Unable to sign in: {exc}")
+
+    st.info(
+        "New user? Create an account first. "
+        "You'll receive an email to confirm your address."
+    )
+
+    st.stop()
+# ---------------------------------------------------------------- session
 init_session()
 inject_theme_css()
 

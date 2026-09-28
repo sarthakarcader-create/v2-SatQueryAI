@@ -49,3 +49,5 @@ pytest>=8.0
 
 fastapi
 uvicorn[standard]
+supabase
+python-dotenv
